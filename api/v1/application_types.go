@@ -31,7 +31,7 @@ type ApplicationSpec struct {
 	// Foo is an example field of Application. Edit application_types.go to remove/update
 	//Foo string `json:"foo,omitempty"`
 	Image   string `json:"image,omitempty"`
-	Enabled bool   `josn:"image,omitempty"`
+	Enabled bool   `json:"enabled,omitempty"`
 }
 
 // ApplicationStatus defines the observed state of Application.

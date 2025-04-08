@@ -34,19 +34,77 @@ chmod +x kubebuilder && sudo mv kubebuilder /usr/local/bin/
 
 项目初始化
 
-```
+```bash
 mkdir i-operator
 cd i-operator
+# 创建一个名为 Application 的 CRD 对象
 kubebuilder init --domain crd.genlang.cn --repo github.com/qinlanggen001/i-operator
 ```
 
 创建API对象
 
-```
+```bash
 kubebuilder create api --group core --version v1 --kind Application --namespaced=true
+# 新增了 /api/v1 目录
+# 新增 /bin 目录
+# config 目录下新增 /config/crd 和 /config/samples
+# 新增 /internal/controllers 目录
 ```
 
+创建webhook
+
+```bash
+chmod +x bin/controller-gen-v0.17.2
+kubebuilder create webhook --group core --version v1 --kind Application --defaulting --programmatic-validation
+#Config 目录下增加了 Webhook 相关配置
+#internal/webhook 目录下增加了 Webhook 默认实现
+```
+
+部署crd
+
+```bash
+# 执行 make manifests 命令，会根据我们定义的 CRD 生成对应的 yaml 文件，以及其他部署相关的 yaml 文件
+make manifests
+# CRD 部署到集群
+make install
+# 本地启动 Controller
+make run
+# 当有报错{"error": "open /tmp/k8s-webhook-server/serving-certs/tls.crt: no such file or directory"}，生成证书
+openssl req -x509 -newkey rsa:4096 -keyout /tmp/k8s-webhook-server/serving-certs/tls.key -out /tmp/k8s-webhook-server/serving-certs/tls.crt -days 365 -nodes -subj "/CN=localhost"
+# 重新执行make run
+# make run
+/mnt/go/i-operator/bin/controller-gen rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/mnt/go/i-operator/bin/controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+go fmt ./...
+go vet ./...
+go run ./cmd/main.go
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.builder	Registering a mutating webhook	{"GVK": "core.crd.genlang.cn/v1, Kind=Application", "path": "/mutate-core-crd-genlang-cn-v1-application"}
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.webhook	Registering webhook	{"path": "/mutate-core-crd-genlang-cn-v1-application"}
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.builder	Registering a validating webhook	{"GVK": "core.crd.genlang.cn/v1, Kind=Application", "path": "/validate-core-crd-genlang-cn-v1-application"}
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.webhook	Registering webhook	{"path": "/validate-core-crd-genlang-cn-v1-application"}
+2025-04-08T10:46:21+08:00	INFO	setup	starting manager
+2025-04-08T10:46:21+08:00	INFO	starting server	{"name": "health probe", "addr": "[::]:8081"}
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.webhook	Starting webhook server
+2025-04-08T10:46:21+08:00	INFO	setup	disabling http/2
+2025-04-08T10:46:21+08:00	INFO	Starting EventSource	{"controller": "application", "controllerGroup": "core.crd.genlang.cn", "controllerKind": "Application", "source": "kind source: *v1.Application"}
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.certwatcher	Updated current TLS certificate
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.webhook	Serving webhook server	{"host": "", "port": 9443}
+2025-04-08T10:46:21+08:00	INFO	controller-runtime.certwatcher	Starting certificate poll+watcher	{"interval": "10s"}
+2025-04-08T10:46:22+08:00	INFO	Starting Controller	{"controller": "application", "controllerGroup": "core.crd.genlang.cn", "controllerKind": "Application"}
+2025-04-08T10:46:22+08:00	INFO	Starting workers	{"controller": "application", "controllerGroup": "core.crd.genlang.cn", "controllerKind": "Application", "worker count": 1}
+2025/04/08 10:48:02 http: TLS handshake error from 20.163.14.5:42678: tls: first record does not look like a TLS handshake
+```
+
+部署完整的operator 到集群
+
+```
+make deploy
+```
+
+
+
 ### To Deploy on the cluster
+
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
